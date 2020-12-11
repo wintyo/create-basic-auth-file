@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Create Basic Auth Key</title>
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.5.22/dist/vue.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/crypto-js.min.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    /**
+     * ファイルにダウンロードする
+     * @param {string} fileName - ファイル名
+     * @param {string} contentStr - コンテンツの中身
+     * @param {string} contentType - コンテンツのタイプ
+     */
+    function download(fileName, contentStr, contentType = 'text/plain') {
+      const blob = new Blob([contentStr], { type: contentType });
+
+      // IE11, 10対応
+      if (window.navigator.msSaveOrOpenBlob) {
+        // msSaveOrOpenBlobの場合はファイルを保存せずに開ける
+        window.navigator.msSaveOrOpenBlob(blob, fileName);
+        return;
+      }
+
+      const element = document.createElement('a');
+      element.href = window.URL.createObjectURL(blob);
+      element.setAttribute('download', fileName);
+      element.click();
+      window.URL.revokeObjectURL(element.href);
+    }
+  </script>
+  <script>
+    new Vue({
+      el: '#app',
+      data() {
+        return {
+          authKeys: [
+            { id: '', password: '' },
+          ]
+        };
+      },
+      computed: {
+        // 暗号化していいか
+        _canEncrypt() {
+          // 配列がなくなっていたら暗号化は不可能
+          if (this.$data.authKeys.length <= 0) {
+            return false;
+          }
+          // とりあえず何か入力しているかだけのチェックをする
+          return this.$data.authKeys.every((authKey) => authKey.id !== '' && authKey.password !== '');
+        }
+      },
+      methods: {
+        /**
+         * キー情報の追加
+         */
+        addAuthKey() {
+          this.$data.authKeys.push({ id: '', password: '' });
+        },
+        /**
+         * キー情報の削除
+         * @param {number} index - index値
+         */
+        deleteAuthKey(index) {
+          this.$data.authKeys.splice(index, 1);
+        },
+        /**
+         * 暗号化してダウンロードする
+         */
+        encrypt() {
+          const encryptStrList = this.$data.authKeys.map((authKey) => {
+            return authKey.id + ':' + CryptoJS.SHA1(authKey.password).toString(CryptoJS.enc.Base64);
+          });
+          download('auth.passwd', encryptStrList.join('\n'));
+        },
+      },
+      template: `
+        <div>
+          <h1>Create Basic Auth Key</h1>
+          <p>
+            IDとPasswordを入力して「鍵を作成」ボタンを押すとファイルがダウンロードされます。<br/>
+            「追加」ボタンで複数のID,Passwordを登録することができます。
+          </p>
+          <template v-for="(authKey, index) in $data.authKeys">
+            <div>
+              <input v-model="authKey.id" type="text" placeholder="id">
+              <input v-model="authKey.password" type="password" placeholder="password">
+              <button @click="deleteAuthKey(index)">削除</button>
+            </div>
+          </template>
+          <div>
+            <button @click="addAuthKey">追加</button>
+          </div>
+          <div>
+            <button @click="encrypt" :disabled="!_canEncrypt">鍵を作成</button>
+          </div>
+        </div>
+      `
+    });
+  </script>
+</body>
+</html>
